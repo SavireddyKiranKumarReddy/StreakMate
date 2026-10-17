@@ -44,7 +44,7 @@ Turn StreakMate from a single-user script into a small **invite-only service**:
 | --- | --- | --- | --- |
 | Valid login | reaches "My Learning" | `active` | "Verified ✓ — daily farming started" |
 | Wrong password | THM "incorrect" message | `invalid_creds` | "Check your THM credentials" |
-| Bot challenge / 429 | stuck "Just a moment…", HTTP 429 | `retry_later` (backoff hours) | "Try again later — not your fault" |
+| Bot challenge / captcha | stuck "Just a moment…", HTTP 429, or reCAPTCHA served | `retry_later` (backoff ≥ 1h, ≤ 2 attempts/day) | "Try again later — not your fault" |
 | 2FA prompt (TOTP) | TOTP input appears | `2fa_blocked` | "Disable 2FA or unsupported" |
 
 **Rules**
@@ -122,11 +122,13 @@ Turn StreakMate from a single-user script into a small **invite-only service**:
 
 ## Build phases
 
-- **Phase 0 — risk gates (before building):**
-  1. Can a *fresh* real-Chrome profile log in to THM from the Mac? (validates onboarding for other users)
-  2. Does headless-new + real Chrome pass? (nice-to-have: no windows flashing per user)
-  3. Spacing test: 3 spaced logins → challenge sensitivity.
-  - Gate: needs a test THM account (do not hammer the main account).
+- **Phase 0 — risk gates — DONE (2026-10-17), test account `leesec01`:**
+  1. Fresh profile, **cold**, headed → reCAPTCHA image challenge on submit. ❌
+  2. Fresh profile + **warm-up** (browse home/learn ~90s, mouse moves, accept cookies), headed → **login PASS, no captcha**, session survives browser restart. ✅
+  3. Warm-up + **headless** → reCAPTCHA served. ❌ → worker browsers must run **headed**.
+  4. End-to-end mini-proof: warmed profile farmed the room (3 checks, 8% → 33%) → account streak **0 → 1**. ✅
+  - Learnings: (a) THM's "Just a moment…" loader also shows on *normal* dashboard loads (fresh accounts: >10s) — logged-in state is best probed via `/api/v2/users/statistics`, which answers even while the UI loads; (b) onboarding recipe = dedicated profile → warm-up → headed login → API check → store; (c) if CAPTCHA still appears: back off ≥ 1h, retry ≤ 2/day, else operator-assisted solve on the Mac.
+  - Test tool: `src/test-fresh-login.js` (env-driven; exit codes classify the outcome).
 - **Phase 1 — core:** extract `runFarm({profileDir, room})`; SQLite + crypto module; CLI
   `add-user` / `verify` / `farm`; proof paths per user.
 - **Phase 2 — daemon:** queue + verification rate policy; per-user staggered scheduling; catch-up; proofs + retention; admin-only Telegram summary.
@@ -136,4 +138,4 @@ Turn StreakMate from a single-user script into a small **invite-only service**:
 
 1. Confirm: "github only" = **Sign in with GitHub** for our site (creds never in GitHub). ⬅ assumed in this plan
 2. Keep admin Telegram alerts for the operator? (recommended: yes)
-3. Which THM account is the Phase 0 test account?
+3. ~~Which THM account is the Phase 0 test account?~~ → **resolved**: `leesec01` (warmed profile kept at `~/StreakMate-test-profile2` as the first beta-like account).
