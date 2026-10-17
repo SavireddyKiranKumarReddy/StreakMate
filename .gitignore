@@ -1,0 +1,9 @@
+node_modules/
+storage/
+logs/
+.env
+agent_key
+agent_key.pub
+*.png
+*.mp4
+.DS_Store
